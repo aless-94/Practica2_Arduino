@@ -70,7 +70,7 @@ FILE *arch;
 
     for (int i = 0; i < n; i++)
     {
-        fprintf(arch, "%.2f\n", *(data+i));  
+        fprintf(arch, "%.6f\n", *(data+i));  
     }
 
     fclose(arch);
@@ -143,17 +143,65 @@ void wFile(float *array_original , int len , FilterFunction filter , char *Filen
     free(New_signal);
 }
 
+void wFWav(float *array , int len, char *Filename)
+{
+    float *New_wav , *final_wav , retraso_seg = 0.3 , atte = 0.4;
+    int retraso_muestras = (int)(retraso_seg * S);
+
+      if ((New_wav = (float*) malloc ((len)*sizeof(float)))==NULL)
+     {
+        puts("Error solicitando memoria en archivo Wav");
+        exit(1);
+     }
+
+     // Aplicar Lógica de ECO
+    // y[n] = x[n] + atte * x[n - D]
+    for (int i = 0; i < len; i++) 
+    {
+        if (i >= retraso_muestras) {
+            New_wav[i] = array[i] + (atte * array[i - retraso_muestras]);
+        } else {
+            New_wav[i] = array[i]; // Antes del retraso, la señal es igual
+        }
+    }
+
+    final_wav = Averager(New_wav,len);
+    WriteFile(Filename, final_wav, len);
+    free(New_wav);
+    free(final_wav);
+
+}
+
 
 void AllProcess()
 {
-    float *signal;
-    char str[256] , name[256];
-    int len = 256;
+    float *signal , *signalWav;
+    char str[256] , name[256] , nameWav[256];
+    int len = 256, lenWav = 0 , pathR = 0;
+    FILE *check;
 
-    printf("Ingresar ruta del file\n");
-    ReadStr(str,len);
-    snprintf(name,256,"%s/Signal_011.txt",str);
+    while (pathR == 0)
+    {
+    
+        printf("Ingresar ruta del folder donde se encuentra las signals a procesar:\n");
+        ReadStr(str,len);
+        snprintf(name,256,"%s/Signal_011.txt",str);
+        check = fopen(name, "r");
+        if(check != NULL)
+        {
+                fclose(check); // existe
+                pathR = 1;   
+                printf("Ruta valida. Se encontro 'Signal_011.txt'.\n");
+        } 
+        else 
+        {
+                printf("ERROR: No se encuentra 'Signal_011.txt' en esa carpeta.\n");
+                printf("Revisa la ruta e intenta de nuevo.\n");
+        }
+    }
+       
     signal = ReadFile(name, &len);
+
     //escalo la señal
     for (int i = 0; i < len; i++) {
         // (valor - 1.0) * (3.3 / 4.0) señal escalada de 0 a 3.3
@@ -164,4 +212,29 @@ void AllProcess()
     snprintf(name,256,"%s/signal_filter.txt",str);
     wFile(signal,len,Filter,name);
     free(signal);
+
+    snprintf(nameWav,256,"%s/file_example_W.txt",str);
+
+    check = fopen(nameWav,"r");
+
+    if(check!= NULL)
+    {
+        fclose(check);
+
+        signalWav= ReadFile(nameWav, &lenWav);
+        snprintf(nameWav,256,"%s/file_wav_eco.txt",str);
+        wFWav(signalWav,lenWav,nameWav);
+
+        free(signalWav);
+
+    } 
+    else 
+    {
+        printf("ADVERTENCIA: No se encontro 'file_example_W.txt' en la misma carpeta.\n");
+        printf("Asegurate de haber ejecutado el script de Matlab primero.\n");
+    }
+    
+    puts("\n--- TODO EL PROCESO TERMINADO ---");
+    puts("Presiona Enter para salir...");
+    getchar();
 }
